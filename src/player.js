@@ -45,6 +45,8 @@ Player.prototype.update = function(elapsedTime) {
       this.y -= 1;
       break;
   }
+  this.color = '#000000';
+  console.log(this._cell);
 }
 
 /**
@@ -59,6 +61,8 @@ Player.prototype.render = function(time, ctx) {
     // source rectangle
     this.frame * this.width, 0, this.width, this.height,
     // destination rectangle
-    this.x, this.y, 2*this.width, 2*this.height
+    this.x, this.y, this.width, this.height
   );
+  ctx.strokeStyle = this.color;
+  ctx.strokeRect(this.x, this.y, this.width, this.height);
 }

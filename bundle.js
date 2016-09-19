@@ -2,21 +2,32 @@
 "use strict";
 
 /* Classes */
-const Game = require('./game.js');
-const Player = require('./player.js');
-const Snake = require('./snake.js');
+const Game = require('./game');
+const EntityManager = require('./entity-manager');
+const Player = require('./player');
+const Snake = require('./snake');
 
 /* Global variables */
 var canvas = document.getElementById('screen');
 var game = new Game(canvas, update, render);
+var entities = new EntityManager(canvas.width, canvas.height, 128);
+
+// Create the player
 var player = new Player({x: 382, y: 440});
+entities.addEntity(player);
+
+// Create some snakes
 var snakes = [];
 for(var i=0; i < 20; i++) {
-  snakes.push(new Snake({
+  var snake = new Snake({
     x: Math.random() * 760,
-    y: Math.random() * 20 + 100
-  }));
+    y: Math.random() * 40 + 100,
+  });
+  snakes.push(snake);
+  entities.addEntity(snake);
 }
+snakes.sort(function(s1, s2) {return s1.y - s2.y;});
+
 
 /**
  * @function masterLoop
@@ -40,8 +51,17 @@ masterLoop(performance.now());
  */
 function update(elapsedTime) {
   player.update(elapsedTime);
-  snakes.forEach(function(snake) { snake.update(elapsedTime);});
+  entities.updateEntity(player);
+  snakes.forEach(function(snake) {
+    snake.update(elapsedTime);
+    entities.updateEntity(snake);
+  });
   // TODO: Update the game objects
+
+  entities.collide(function(entity1, entity2) {
+    entity1.color = '#ff0000';
+    entity2.color = '#00ff00';
+  });
 }
 
 /**
@@ -54,11 +74,114 @@ function update(elapsedTime) {
 function render(elapsedTime, ctx) {
   ctx.fillStyle = "lightblue";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  player.render(elapsedTime, ctx);
+  entities.renderCells(ctx);
   snakes.forEach(function(snake){snake.render(elapsedTime, ctx);});
+  player.render(elapsedTime, ctx);
 }
 
-},{"./game.js":2,"./player.js":3,"./snake.js":4}],2:[function(require,module,exports){
+},{"./entity-manager":2,"./game":3,"./player":4,"./snake":5}],2:[function(require,module,exports){
+module.exports = exports = EntityManager;
+
+function EntityManager(width, height, cellSize) {
+  this.cellSize = cellSize;
+  this.widthInCells = Math.ceil(width / cellSize);
+  this.heightInCells = Math.ceil(height / cellSize);
+  this.cells = [];
+  this.numberOfCells = this.widthInCells * this.heightInCells;
+  for(var i = 0; i < this.numberOfCells; i++) {
+    this.cells[i] = [];
+  }
+  this.cells[-1] = [];
+}
+
+function getIndex(x, y) {
+  var x = Math.floor(x / this.cellSize);
+  var y = Math.floor(y / this.cellSize);
+  if(x < 0 ||
+     x >= this.widthInCells ||
+     y < 0 ||
+     y >= this.heightInCells
+  ) return -1;
+  return y * this.widthInCells + x;
+}
+
+EntityManager.prototype.addEntity = function(entity){
+  var index = getIndex.call(this, entity.x, entity.y);
+  this.cells[index].push(entity);
+  entity._cell = index;
+}
+
+EntityManager.prototype.updateEntity = function(entity){
+  var index = getIndex.call(this, entity.x, entity.y);
+  // If we moved to a new cell, remove from old and add to new
+  if(index != entity._cell) {
+    var cellIndex = this.cells[entity._cell].indexOf(entity);
+    if(cellIndex != -1) this.cells[entity._cell].splice(cellIndex, 1);
+    this.cells[index].push(entity);
+    entity._cell = index;
+  }
+}
+
+EntityManager.prototype.removeEntity = function(entity) {
+  var cellIndex = this.cells[entity._cell].indexOf(entity);
+  if(cellIndex != -1) this.cells[entity._cell].splice(cellIndex, 1);
+  entity._cell = undefined;
+}
+
+EntityManager.prototype.collide = function(callback) {
+  var self = this;
+  this.cells.forEach(function(cell, i) {
+    // test for collisions
+    cell.forEach(function(entity1) {
+      // check for collisions with cellmates
+      cell.forEach(function(entity2) {
+        if(entity1 != entity2) checkForCollision(entity1, entity2, callback);
+
+        // check for collisions in cell to the right
+        if(i % (self.widthInCells - 1) != 0) {
+          self.cells[i+1].forEach(function(entity2) {
+            checkForCollision(entity1, entity2, callback);
+          });
+        }
+
+        // check for collisions in cell below
+        if(i < self.numberOfCells - self.widthInCells) {
+          self.cells[i+self.widthInCells].forEach(function(entity2){
+            checkForCollision(entity1, entity2, callback);
+          });
+        }
+
+        // check for collisions diagionally below and right
+        if(i < self.numberOfCells - self.withInCells && i % (self.widthInCells - 1) != 0) {
+          self.cells[i+self.widthInCells + 1].forEach(function(entity2){
+            checkForCollision(entity1, entity2, callback);
+          });
+        }
+      });
+    });
+  });
+}
+
+function checkForCollision(entity1, entity2, callback) {
+  var collides = !(entity1.x + entity1.width < entity2.x ||
+                   entity1.x > entity2.x + entity2.width ||
+                   entity1.y + entity1.height < entity2.y ||
+                   entity1.y > entity2.y + entity2.height);
+  if(collides) {
+    callback(entity1, entity2);
+  }
+}
+
+EntityManager.prototype.renderCells = function(ctx) {
+  for(var x = 0; x < this.widthInCells; x++) {
+    for(var y = 0; y < this.heightInCells; y++) {
+      ctx.strokeStyle = '#333333';
+      ctx.strokeRect(x * this.cellSize, y * this.cellSize, this.cellSize, this.cellSize);
+    }
+  }
+}
+
+},{}],3:[function(require,module,exports){
 "use strict";
 
 /**
@@ -116,7 +239,7 @@ Game.prototype.loop = function(newTime) {
   this.frontCtx.drawImage(this.backBuffer, 0, 0);
 }
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 "use strict";
 
 /**
@@ -164,6 +287,8 @@ Player.prototype.update = function(elapsedTime) {
       this.y -= 1;
       break;
   }
+  this.color = '#000000';
+  console.log(this._cell);
 }
 
 /**
@@ -178,11 +303,13 @@ Player.prototype.render = function(time, ctx) {
     // source rectangle
     this.frame * this.width, 0, this.width, this.height,
     // destination rectangle
-    this.x, this.y, 2*this.width, 2*this.height
+    this.x, this.y, this.width, this.height
   );
+  ctx.strokeStyle = this.color;
+  ctx.strokeRect(this.x, this.y, this.width, this.height);
 }
 
-},{}],4:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 "use strict";
 
 /**
@@ -233,6 +360,7 @@ Snake.prototype.update = function(elapsedTime) {
       if(this.x > this.rightBound) this.state = "left";
       break;
   }
+  this.color = '#000000';
 }
 
 /**
@@ -248,7 +376,7 @@ Snake.prototype.render = function(time, ctx) {
       // source rectangle
       this.frame * this.width, 0, this.width, this.height,
       // destination rectangle
-      this.x, this.y, 2*this.width, 2*this.height
+      this.x, this.y, this.width, this.height
     );
   } else {
     ctx.drawImage(
@@ -257,9 +385,11 @@ Snake.prototype.render = function(time, ctx) {
       // source rectangle
       this.frame * this.width, 0, this.width, this.height,
       // destination rectangle
-      this.x, this.y, 2*this.width, 2*this.height
+      this.x, this.y, this.width, this.height
     );
   }
+  ctx.strokeStyle = this.color;
+  ctx.strokeRect(this.x, this.y, this.width, this.height);
 }
 
 },{}]},{},[1]);

@@ -1,21 +1,32 @@
 "use strict";
 
 /* Classes */
-const Game = require('./game.js');
-const Player = require('./player.js');
-const Snake = require('./snake.js');
+const Game = require('./game');
+const EntityManager = require('./entity-manager');
+const Player = require('./player');
+const Snake = require('./snake');
 
 /* Global variables */
 var canvas = document.getElementById('screen');
 var game = new Game(canvas, update, render);
+var entities = new EntityManager(canvas.width, canvas.height, 128);
+
+// Create the player
 var player = new Player({x: 382, y: 440});
+entities.addEntity(player);
+
+// Create some snakes
 var snakes = [];
 for(var i=0; i < 20; i++) {
-  snakes.push(new Snake({
+  var snake = new Snake({
     x: Math.random() * 760,
-    y: Math.random() * 20 + 100
-  }));
+    y: Math.random() * 40 + 100,
+  });
+  snakes.push(snake);
+  entities.addEntity(snake);
 }
+snakes.sort(function(s1, s2) {return s1.y - s2.y;});
+
 
 /**
  * @function masterLoop
@@ -39,8 +50,17 @@ masterLoop(performance.now());
  */
 function update(elapsedTime) {
   player.update(elapsedTime);
-  snakes.forEach(function(snake) { snake.update(elapsedTime);});
+  entities.updateEntity(player);
+  snakes.forEach(function(snake) {
+    snake.update(elapsedTime);
+    entities.updateEntity(snake);
+  });
   // TODO: Update the game objects
+
+  entities.collide(function(entity1, entity2) {
+    entity1.color = '#ff0000';
+    entity2.color = '#00ff00';
+  });
 }
 
 /**
@@ -53,6 +73,7 @@ function update(elapsedTime) {
 function render(elapsedTime, ctx) {
   ctx.fillStyle = "lightblue";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  player.render(elapsedTime, ctx);
+  entities.renderCells(ctx);
   snakes.forEach(function(snake){snake.render(elapsedTime, ctx);});
+  player.render(elapsedTime, ctx);
 }

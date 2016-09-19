@@ -48,6 +48,7 @@ Snake.prototype.update = function(elapsedTime) {
       if(this.x > this.rightBound) this.state = "left";
       break;
   }
+  this.color = '#000000';
 }
 
 /**
@@ -63,7 +64,7 @@ Snake.prototype.render = function(time, ctx) {
       // source rectangle
       this.frame * this.width, 0, this.width, this.height,
       // destination rectangle
-      this.x, this.y, 2*this.width, 2*this.height
+      this.x, this.y, this.width, this.height
     );
   } else {
     ctx.drawImage(
@@ -72,7 +73,9 @@ Snake.prototype.render = function(time, ctx) {
       // source rectangle
       this.frame * this.width, 0, this.width, this.height,
       // destination rectangle
-      this.x, this.y, 2*this.width, 2*this.height
+      this.x, this.y, this.width, this.height
     );
   }
+  ctx.strokeStyle = this.color;
+  ctx.strokeRect(this.x, this.y, this.width, this.height);
 }
